@@ -43,10 +43,22 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
         if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
     }
 };
+/** 生成的emoji行列数 */
+var MAX_NUM = 4;
+/** 当前关卡 */
+var ACT_LEVEL = 2;
+/** 获取数组中随机值 */
+function getAryRand(ary) {
+    var randomNum = Math.ceil(Math.random() * (ary.length - 1));
+    var res = ary[randomNum];
+    ary.splice(randomNum, 1);
+    return res;
+}
 var Main = (function (_super) {
     __extends(Main, _super);
     function Main() {
         var _this = _super.call(this) || this;
+        _this.emojiMannager = null;
         _this.addEventListener(egret.Event.ADDED_TO_STAGE, _this.onAddToStage, _this);
         return _this;
     }
@@ -68,12 +80,16 @@ var Main = (function (_super) {
     };
     Main.prototype.runGame = function () {
         return __awaiter(this, void 0, void 0, function () {
+            var result;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0: return [4 /*yield*/, this.loadResource()];
                     case 1:
                         _a.sent();
                         this.createGameScene();
+                        return [4 /*yield*/, RES.getResAsync("description_json")];
+                    case 2:
+                        result = _a.sent();
                         return [2 /*return*/];
                 }
             });
@@ -110,9 +126,18 @@ var Main = (function (_super) {
      * Create a game scene
      */
     Main.prototype.createGameScene = function () {
-        var label = new egret.TextField();
-        label.text = "hello world!";
-        this.addChild(label);
+        var sky = this.createBitmapByName("bg_png");
+        sky.fillMode = egret.BitmapFillMode.REPEAT;
+        this.addChild(sky);
+        // let stageW = this.stage.stageWidth;
+        // let stageH = this.stage.stageHeight;
+        // sky.width = stageW;
+        // sky.height = stageH;
+        this.createEmoji();
+    };
+    /** 创建场景的emoji */
+    Main.prototype.createEmoji = function () {
+        this.emojiMannager = new EmojiMannager(this);
     };
     /**
      * 根据name关键字创建一个Bitmap对象。name属性请参考resources/resource.json配置文件的内容。
@@ -124,34 +149,109 @@ var Main = (function (_super) {
         result.texture = texture;
         return result;
     };
-    /**
-     * 描述文件加载成功，开始播放动画
-     * Description file loading is successful, start to play the animation
-     */
-    Main.prototype.startAnimation = function (result) {
-        var _this = this;
-        var parser = new egret.HtmlTextParser();
-        var textflowArr = result.map(function (text) { return parser.parse(text); });
-        var textfield = this.textfield;
-        var count = -1;
-        var change = function () {
-            count++;
-            if (count >= textflowArr.length) {
-                count = 0;
-            }
-            var textFlow = textflowArr[count];
-            // 切换描述内容
-            // Switch to described content
-            textfield.textFlow = textFlow;
-            var tw = egret.Tween.get(textfield);
-            tw.to({ "alpha": 1 }, 200);
-            tw.wait(2000);
-            tw.to({ "alpha": 0 }, 200);
-            tw.call(change, _this);
-        };
-        change();
-    };
     return Main;
 }(egret.DisplayObjectContainer));
 __reflect(Main.prototype, "Main");
+var EmojiMannager = (function () {
+    function EmojiMannager(stage) {
+        /** 舞台 */
+        this.stage = null;
+        /** emoji随机池 */
+        this.emojiPool = [];
+        this.stage = stage;
+        this.initEmojiPool();
+        this.createEmoji();
+    }
+    /** 初始化emoji随机池 */
+    EmojiMannager.prototype.initEmojiPool = function () {
+        /** 生成emoji的数量 */
+        var emojiNum = ACT_LEVEL * MAX_NUM * MAX_NUM * 2;
+        for (var i = 0; i < emojiNum; i++) {
+            this.emojiPool.push(new Emoji(i));
+        }
+    };
+    /** 获取随机池中的emoji */
+    EmojiMannager.prototype.getRandomEmoji = function () {
+        return getAryRand(this.emojiPool);
+    };
+    EmojiMannager.prototype.createEmoji = function () {
+        var position = {
+            x: 200,
+            y: 400
+        };
+        var firstEmoji = null;
+        this.stage.addChildAt(new egret.TextField(), 1);
+        this.stage.addChildAt(new egret.TextField(), 1);
+        var offsetX = 115, offsetY = 105;
+        for (var i = 0; i < MAX_NUM; i++) {
+            for (var j = 0; j < MAX_NUM; j++) {
+                var tempX = position.x + i * offsetX, tempY = position.y + j * offsetY;
+                for (var k = 0; k <= ACT_LEVEL; k++) {
+                    var emoji = this.getRandomEmoji();
+                    emoji.$setX(tempX);
+                    emoji.$setY(tempY);
+                    if (k == 0 && j == 0 && i == 0) {
+                        firstEmoji = emoji;
+                    }
+                    if (k > 0) {
+                        emoji.changeGrey();
+                    }
+                    var deep = ACT_LEVEL * 2 - k;
+                    this.stage.addChildAt(emoji, deep);
+                    // this.stage.addChild(emoji)
+                    // this.stage.setChildIndex(emoji, deep)
+                    var halfW = 13;
+                    /** 下一层的位置 */
+                    var nextPositionMap = [
+                        // 左上角
+                        { tempX: tempX - halfW, tempY: tempY - halfW },
+                        // 右上角
+                        { tempX: tempX + halfW, tempY: tempY - halfW },
+                        // 左下角
+                        { tempX: tempX - halfW, tempY: tempY + halfW },
+                        // 右下角
+                        { tempX: tempX + halfW, tempY: tempY + halfW },
+                    ];
+                    var pos = getAryRand(nextPositionMap);
+                    tempX = pos.tempX;
+                    tempY = pos.tempY;
+                }
+            }
+        }
+    };
+    return EmojiMannager;
+}());
+__reflect(EmojiMannager.prototype, "EmojiMannager");
+var Emoji = (function (_super) {
+    __extends(Emoji, _super);
+    function Emoji(key) {
+        var _this = _super.call(this) || this;
+        _this.key = 0;
+        _this.isDeep = false;
+        _this.key = key;
+        _this.init();
+        return _this;
+    }
+    Emoji.prototype.init = function () {
+        var tempK = (this.key % MAX_NUM) + 1;
+        var texture = RES.getRes("emoji" + tempK + "_png");
+        this.texture = texture;
+        this.width = 72;
+        this.height = 72;
+    };
+    /** 底层emoji置灰 */
+    Emoji.prototype.changeGrey = function () {
+        //颜色矩阵数组
+        var colorMatrix = [
+            0.3, 0.6, 0, 0, 0,
+            0.3, 0.6, 0, 0, 0,
+            0.3, 0.6, 0, 0, 0,
+            0, 0, 0, 1, 0
+        ];
+        var colorFlilter = new egret.ColorMatrixFilter(colorMatrix);
+        this.filters = [colorFlilter];
+    };
+    return Emoji;
+}(egret.Bitmap));
+__reflect(Emoji.prototype, "Emoji");
 //# sourceMappingURL=Main.js.map
