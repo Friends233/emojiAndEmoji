@@ -1,7 +1,12 @@
 /** 生成的emoji行列数 */
-const MAX_NUM = 4
+const MAX_NUM = 3
 /** 当前关卡 */
-const ACT_LEVEL = 2
+const ACT_LEVEL = 1
+/** 生成emoji的偏移量 */
+const halfW = 20
+/** 生成emoji的间隔 */
+const offsetX = 92, offsetY = 92
+
 
 /** 获取数组中随机值 */
 function getAryRand<T>(ary: T[]): T {
@@ -75,17 +80,13 @@ class Main extends egret.DisplayObjectContainer {
     let sky = this.createBitmapByName("bg_png");
     sky.fillMode = egret.BitmapFillMode.REPEAT
     this.addChild(sky);
-    // let stageW = this.stage.stageWidth;
-    // let stageH = this.stage.stageHeight;
-    // sky.width = stageW;
-    // sky.height = stageH;
 
     this.createEmoji()
   }
 
   /** 创建场景的emoji */
   private createEmoji() {
-    this.emojiMannager = new EmojiMannager(this)
+    this.emojiMannager = new EmojiMannager(this.stage)
   }
 
   /**
@@ -129,14 +130,11 @@ class EmojiMannager {
 
   private createEmoji() {
     const position = {
-      x: 200,
+      x: (this.stage.stageWidth - offsetX * MAX_NUM + (offsetX - 72)) * 0.5,
       y: 400
     }
+    console.log('1', (this.stage.stageWidth - offsetX * MAX_NUM) * 0.5)
     let firstEmoji = null
-    // TODO特殊处理，未定位的bug
-    this.stage.addChildAt(new egret.TextField(),1)
-    this.stage.addChildAt(new egret.TextField(),1)
-    const offsetX = 115, offsetY = 105
     for (let i = 0; i < MAX_NUM; i++) {
       for (let j = 0; j < MAX_NUM; j++) {
         let tempX = position.x + i * offsetX, tempY = position.y + j * offsetY
@@ -150,26 +148,17 @@ class EmojiMannager {
           if (k > 0) {
             emoji.changeGrey()
           }
-          const deep = ACT_LEVEL * 2 - k
-          this.stage.addChildAt(emoji,deep)
-          // this.stage.addChild(emoji)
-          // this.stage.setChildIndex(emoji, deep)
-          const halfW = 13
-          /** 下一层的位置 */
+          this.stage.addChildAt(emoji, this.stage.numChildren - k)
+          /** 下一层偏移的位置 */
           const nextPositionMap = [
-            // 左上角
-            { tempX: tempX - halfW, tempY: tempY - halfW },
-            // 右上角
-            { tempX: tempX + halfW, tempY: tempY - halfW },
-            // 左下角
-            { tempX: tempX - halfW, tempY: tempY + halfW },
-            // 右下角
-            { tempX: tempX + halfW, tempY: tempY + halfW },
+            { tempX: tempX - halfW },
+            { tempX: tempX + halfW },
+            { tempY: tempY + halfW },
+            { tempY: tempY + halfW },
           ]
           const pos = getAryRand<{ tempX?: number, tempY?: number }>(nextPositionMap)
-          tempX = pos.tempX
-          tempY = pos.tempY
-
+          tempX = pos.tempX || tempX
+          tempY = pos.tempY || tempY
         }
       }
     }

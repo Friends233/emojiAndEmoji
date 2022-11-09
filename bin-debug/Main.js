@@ -44,9 +44,11 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
     }
 };
 /** 生成的emoji行列数 */
-var MAX_NUM = 4;
+var MAX_NUM = 3;
 /** 当前关卡 */
-var ACT_LEVEL = 2;
+var ACT_LEVEL = 1;
+/** 生成emoji的偏移量 */
+var halfW = 20;
 /** 获取数组中随机值 */
 function getAryRand(ary) {
     var randomNum = Math.ceil(Math.random() * (ary.length - 1));
@@ -134,10 +136,18 @@ var Main = (function (_super) {
         // sky.width = stageW;
         // sky.height = stageH;
         this.createEmoji();
+        // for(let i=0;i<10;i++){
+        //   const emoji = this.createBitmapByName(`emoji${i+1}_png`)
+        //   emoji.x =i*36
+        //   // this.stage.addChildAt(emoji,10-i)
+        //   console.log(10-i)
+        //   this.stage.addChild(emoji)
+        //   this.stage.setChildIndex(emoji,this.stage.numChildren +1)
+        // }
     };
     /** 创建场景的emoji */
     Main.prototype.createEmoji = function () {
-        this.emojiMannager = new EmojiMannager(this);
+        this.emojiMannager = new EmojiMannager(this.stage);
     };
     /**
      * 根据name关键字创建一个Bitmap对象。name属性请参考resources/resource.json配置文件的内容。
@@ -175,14 +185,13 @@ var EmojiMannager = (function () {
         return getAryRand(this.emojiPool);
     };
     EmojiMannager.prototype.createEmoji = function () {
+        var offsetX = 92, offsetY = 92;
         var position = {
-            x: 200,
+            x: (this.stage.stageWidth - offsetX * MAX_NUM + (offsetX - 72)) * 0.5,
             y: 400
         };
+        console.log('1', (this.stage.stageWidth - offsetX * MAX_NUM) * 0.5);
         var firstEmoji = null;
-        this.stage.addChildAt(new egret.TextField(), 1);
-        this.stage.addChildAt(new egret.TextField(), 1);
-        var offsetX = 115, offsetY = 105;
         for (var i = 0; i < MAX_NUM; i++) {
             for (var j = 0; j < MAX_NUM; j++) {
                 var tempX = position.x + i * offsetX, tempY = position.y + j * offsetY;
@@ -196,25 +205,17 @@ var EmojiMannager = (function () {
                     if (k > 0) {
                         emoji.changeGrey();
                     }
-                    var deep = ACT_LEVEL * 2 - k;
-                    this.stage.addChildAt(emoji, deep);
-                    // this.stage.addChild(emoji)
-                    // this.stage.setChildIndex(emoji, deep)
-                    var halfW = 13;
-                    /** 下一层的位置 */
+                    this.stage.addChildAt(emoji, this.stage.numChildren - k);
+                    /** 下一层偏移的位置 */
                     var nextPositionMap = [
-                        // 左上角
-                        { tempX: tempX - halfW, tempY: tempY - halfW },
-                        // 右上角
-                        { tempX: tempX + halfW, tempY: tempY - halfW },
-                        // 左下角
-                        { tempX: tempX - halfW, tempY: tempY + halfW },
-                        // 右下角
-                        { tempX: tempX + halfW, tempY: tempY + halfW },
+                        { tempX: tempX - halfW },
+                        { tempX: tempX + halfW },
+                        { tempY: tempY + halfW },
+                        { tempY: tempY + halfW },
                     ];
                     var pos = getAryRand(nextPositionMap);
-                    tempX = pos.tempX;
-                    tempY = pos.tempY;
+                    tempX = pos.tempX || tempX;
+                    tempY = pos.tempY || tempY;
                 }
             }
         }
