@@ -1,7 +1,7 @@
 /** 生成的emoji行列数 */
-const MAX_NUM = 3
+const MAX_NUM = 5
 /** 当前关卡 */
-const ACT_LEVEL = 1
+const ACT_LEVEL = 3
 /** 生成emoji的偏移量 */
 const halfW = 20
 /** 生成emoji的间隔 */
@@ -153,11 +153,19 @@ class EmojiMannager {
     for (let i = 0; i < MAX_NUM; i++) {
       for (let j = 0; j < MAX_NUM; j++) {
         let tempX = position.x + i * offsetX, tempY = position.y + j * offsetY
+        let preEmoji: Emoji = null
         for (let k = 0; k <= ACT_LEVEL; k++) {
           const emoji: Emoji = this.getRandomEmoji()
+          if (!preEmoji) {
+            preEmoji = emoji
+          } else {
+            preEmoji.nextEmoji = emoji
+            preEmoji = preEmoji.nextEmoji
+          }
           emoji.$setX(tempX)
           emoji.$setY(tempY)
-          emoji.setDeep(k)
+          emoji.deep = k
+          emoji.changeGrey()
           this.stage.addChildAt(emoji, this.stage.numChildren - k)
 
           /** 下一层偏移的位置 */
@@ -178,11 +186,13 @@ class EmojiMannager {
 
 class Emoji extends egret.DisplayObjectContainer {
   /** 唯一key值 */
-  private key = 0
+  public key = 0
   /** emoji类型 */
   public type = 0
   /** emoji深度 */
   public deep = 0
+  /** 下一层的emoji */
+  public nextEmoji: Emoji = null
   constructor(key) {
     super();
     this.key = key
@@ -199,11 +209,15 @@ class Emoji extends egret.DisplayObjectContainer {
     this.width = 72
     this.height = 72
   }
-
-  public setDeep(deep) {
-    this.deep = deep
+  /** 刷新deep层数 */
+  public refreshDeep() {
+    if (this.deep <= 0) {
+      return
+    }
+    this.deep = 0
     this.changeGrey()
   }
+
 
   /** 底层emoji置灰 */
   public changeGrey() {
@@ -266,17 +280,21 @@ class EmojiPlayer extends egret.DisplayObjectContainer {
     if (this.isTween) {
       return
     }
-    this.isTween = true
     if (this.emojiStack.length >= 7 || emoji.deep !== 0) {
       return
     }
+    // 禁用点击
+    this.isTween = true
     const loc: egret.Point = new egret.Point(this.emojiStack.length * 72 + 123, 1200)
     this.emojiStack.push(emoji)
     if (!this.emojiEliMap[emoji.type]) {
       this.emojiEliMap[emoji.type] = []
     }
-    this.emojiEliMap[emoji.type].push(this.emojiStack.length - 1)
-    emoji.deep -= 1
+    this.emojiEliMap[emoji.type].push(emoji.key)
+    // 刷新下一层的emoji样式
+    if (emoji.nextEmoji) {
+      emoji.nextEmoji.refreshDeep()
+    }
     egret.Tween.get(emoji).to({ x: loc.x, y: loc.y }, 500, egret.Ease.sineIn).call(() => {
       this.isEliminateEmoji()
     });
@@ -285,21 +303,26 @@ class EmojiPlayer extends egret.DisplayObjectContainer {
   /** 消除emoji判断 */
   private isEliminateEmoji() {
     const tempMap = Object.keys(this.emojiEliMap)
-    console.log(tempMap, this.emojiEliMap)
     tempMap.forEach((item, i) => {
       const ary = this.emojiEliMap[item] || []
       if (ary.length >= 3) {
         this.destEmoji(ary)
-        this.emojiEliMap = []
+        this.emojiEliMap[item] = []
       }
     })
     this.isTween = false
+
+    if (this.emojiStack.length >= 7) {
+      setTimeout(() => {
+        alert('GAME OVER')
+      }, 200);
+    }
   }
 
   /** 消除emoji */
   private destEmoji(keys) {
     const newStack = this.emojiStack.filter((emoji, i) => {
-      const isDel = keys.includes(i)
+      const isDel = keys.includes(emoji.key)
       if (isDel) {
         emoji.destEmoji(() => {
           this.stage.removeChild(emoji)
@@ -310,14 +333,12 @@ class EmojiPlayer extends egret.DisplayObjectContainer {
     this.emojiStack = newStack
     this.refreEmojiPlayer()
   }
-  
+
   /** 刷新场景中的emoji */
   private refreEmojiPlayer() {
     this.emojiStack.forEach((emoji, i) => {
       const loc: egret.Point = new egret.Point(i * 72 + 123, 1200)
-      egret.Tween.get(emoji).to({ x: loc.x, y: loc.y }, 200, egret.Ease.sineIn).call(() => {
-        this.isEliminateEmoji()
-      });
+      egret.Tween.get(emoji).to({ x: loc.x, y: loc.y }, 200, egret.Ease.sineIn);
     })
   }
 }

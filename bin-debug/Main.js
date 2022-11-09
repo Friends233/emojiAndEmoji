@@ -44,9 +44,9 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
     }
 };
 /** 生成的emoji行列数 */
-var MAX_NUM = 3;
+var MAX_NUM = 5;
 /** 当前关卡 */
-var ACT_LEVEL = 1;
+var ACT_LEVEL = 3;
 /** 生成emoji的偏移量 */
 var halfW = 20;
 /** 生成emoji的间隔 */
@@ -206,11 +206,20 @@ var EmojiMannager = (function () {
         for (var i = 0; i < MAX_NUM; i++) {
             for (var j = 0; j < MAX_NUM; j++) {
                 var tempX = position.x + i * offsetX, tempY = position.y + j * offsetY;
+                var preEmoji = null;
                 for (var k = 0; k <= ACT_LEVEL; k++) {
                     var emoji = this.getRandomEmoji();
+                    if (!preEmoji) {
+                        preEmoji = emoji;
+                    }
+                    else {
+                        preEmoji.nextEmoji = emoji;
+                        preEmoji = preEmoji.nextEmoji;
+                    }
                     emoji.$setX(tempX);
                     emoji.$setY(tempY);
-                    emoji.setDeep(k);
+                    emoji.deep = k;
+                    emoji.changeGrey();
                     this.stage.addChildAt(emoji, this.stage.numChildren - k);
                     /** 下一层偏移的位置 */
                     var nextPositionMap = [
@@ -239,6 +248,8 @@ var Emoji = (function (_super) {
         _this.type = 0;
         /** emoji深度 */
         _this.deep = 0;
+        /** 下一层的emoji */
+        _this.nextEmoji = null;
         _this.key = key;
         _this.init();
         return _this;
@@ -253,8 +264,12 @@ var Emoji = (function (_super) {
         this.width = 72;
         this.height = 72;
     };
-    Emoji.prototype.setDeep = function (deep) {
-        this.deep = deep;
+    /** 刷新deep层数 */
+    Emoji.prototype.refreshDeep = function () {
+        if (this.deep <= 0) {
+            return;
+        }
+        this.deep = 0;
         this.changeGrey();
     };
     /** 底层emoji置灰 */
@@ -316,17 +331,21 @@ var EmojiPlayer = (function (_super) {
         if (this.isTween) {
             return;
         }
-        this.isTween = true;
         if (this.emojiStack.length >= 7 || emoji.deep !== 0) {
             return;
         }
+        // 禁用点击
+        this.isTween = true;
         var loc = new egret.Point(this.emojiStack.length * 72 + 123, 1200);
         this.emojiStack.push(emoji);
         if (!this.emojiEliMap[emoji.type]) {
             this.emojiEliMap[emoji.type] = [];
         }
-        this.emojiEliMap[emoji.type].push(this.emojiStack.length - 1);
-        emoji.deep -= 1;
+        this.emojiEliMap[emoji.type].push(emoji.key);
+        // 刷新下一层的emoji样式
+        if (emoji.nextEmoji) {
+            emoji.nextEmoji.refreshDeep();
+        }
         egret.Tween.get(emoji).to({ x: loc.x, y: loc.y }, 500, egret.Ease.sineIn).call(function () {
             _this.isEliminateEmoji();
         });
@@ -335,21 +354,25 @@ var EmojiPlayer = (function (_super) {
     EmojiPlayer.prototype.isEliminateEmoji = function () {
         var _this = this;
         var tempMap = Object.keys(this.emojiEliMap);
-        console.log(tempMap, this.emojiEliMap);
         tempMap.forEach(function (item, i) {
             var ary = _this.emojiEliMap[item] || [];
             if (ary.length >= 3) {
                 _this.destEmoji(ary);
-                _this.emojiEliMap = [];
+                _this.emojiEliMap[item] = [];
             }
         });
         this.isTween = false;
+        if (this.emojiStack.length >= 7) {
+            setTimeout(function () {
+                alert('GAME OVER');
+            }, 200);
+        }
     };
     /** 消除emoji */
     EmojiPlayer.prototype.destEmoji = function (keys) {
         var _this = this;
         var newStack = this.emojiStack.filter(function (emoji, i) {
-            var isDel = keys.includes(i);
+            var isDel = keys.includes(emoji.key);
             if (isDel) {
                 emoji.destEmoji(function () {
                     _this.stage.removeChild(emoji);
@@ -360,13 +383,11 @@ var EmojiPlayer = (function (_super) {
         this.emojiStack = newStack;
         this.refreEmojiPlayer();
     };
+    /** 刷新场景中的emoji */
     EmojiPlayer.prototype.refreEmojiPlayer = function () {
-        var _this = this;
         this.emojiStack.forEach(function (emoji, i) {
             var loc = new egret.Point(i * 72 + 123, 1200);
-            egret.Tween.get(emoji).to({ x: loc.x, y: loc.y }, 200, egret.Ease.sineIn).call(function () {
-                _this.isEliminateEmoji();
-            });
+            egret.Tween.get(emoji).to({ x: loc.x, y: loc.y }, 200, egret.Ease.sineIn);
         });
     };
     return EmojiPlayer;
