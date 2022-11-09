@@ -49,6 +49,8 @@ var MAX_NUM = 3;
 var ACT_LEVEL = 1;
 /** 生成emoji的偏移量 */
 var halfW = 20;
+/** 生成emoji的间隔 */
+var offsetX = 92, offsetY = 92;
 /** 获取数组中随机值 */
 function getAryRand(ary) {
     var randomNum = Math.ceil(Math.random() * (ary.length - 1));
@@ -60,7 +62,10 @@ var Main = (function (_super) {
     __extends(Main, _super);
     function Main() {
         var _this = _super.call(this) || this;
+        /** emoji管理器 */
         _this.emojiMannager = null;
+        /** emoji消除栏 */
+        _this.emojiPlayer = null;
         _this.addEventListener(egret.Event.ADDED_TO_STAGE, _this.onAddToStage, _this);
         return _this;
     }
@@ -128,26 +133,22 @@ var Main = (function (_super) {
      * Create a game scene
      */
     Main.prototype.createGameScene = function () {
+        var stageWidth = this.stage.stageWidth;
         var sky = this.createBitmapByName("bg_png");
         sky.fillMode = egret.BitmapFillMode.REPEAT;
         this.addChild(sky);
-        // let stageW = this.stage.stageWidth;
-        // let stageH = this.stage.stageHeight;
-        // sky.width = stageW;
-        // sky.height = stageH;
+        var emojiPlayer = this.emojiPlayer = new EmojiPlayer(this.stage);
+        emojiPlayer.$setX((stageWidth - emojiPlayer.width) / 2);
+        emojiPlayer.$setY(1200);
+        this.stage.addChild(emojiPlayer);
         this.createEmoji();
-        // for(let i=0;i<10;i++){
-        //   const emoji = this.createBitmapByName(`emoji${i+1}_png`)
-        //   emoji.x =i*36
-        //   // this.stage.addChildAt(emoji,10-i)
-        //   console.log(10-i)
-        //   this.stage.addChild(emoji)
-        //   this.stage.setChildIndex(emoji,this.stage.numChildren +1)
-        // }
+        // this.stage.addEventListener(egret.TouchEvent.TOUCH_TAP,() => {
+        //   console.log('test')
+        // },this)
     };
     /** 创建场景的emoji */
     Main.prototype.createEmoji = function () {
-        this.emojiMannager = new EmojiMannager(this.stage);
+        this.emojiMannager = new EmojiMannager(this.stage, this.emojiPlayer);
     };
     /**
      * 根据name关键字创建一个Bitmap对象。name属性请参考resources/resource.json配置文件的内容。
@@ -163,21 +164,34 @@ var Main = (function (_super) {
 }(egret.DisplayObjectContainer));
 __reflect(Main.prototype, "Main");
 var EmojiMannager = (function () {
-    function EmojiMannager(stage) {
+    function EmojiMannager(stage, emojiPlayer) {
         /** 舞台 */
         this.stage = null;
         /** emoji随机池 */
         this.emojiPool = [];
+        /** emoji消除栏 */
+        this.emojiPlayer = null;
         this.stage = stage;
+        this.emojiPlayer = emojiPlayer;
         this.initEmojiPool();
         this.createEmoji();
     }
     /** 初始化emoji随机池 */
     EmojiMannager.prototype.initEmojiPool = function () {
+        var _this = this;
         /** 生成emoji的数量 */
         var emojiNum = ACT_LEVEL * MAX_NUM * MAX_NUM * 2;
+        var _loop_1 = function (i) {
+            var emoji = new Emoji(i);
+            emoji.touchEnabled = true;
+            emoji.addEventListener(egret.TouchEvent.TOUCH_TAP, function () {
+                _this.emojiPlayer.launchTween(emoji);
+            }, this_1);
+            this_1.emojiPool.push(emoji);
+        };
+        var this_1 = this;
         for (var i = 0; i < emojiNum; i++) {
-            this.emojiPool.push(new Emoji(i));
+            _loop_1(i);
         }
     };
     /** 获取随机池中的emoji */
@@ -185,13 +199,10 @@ var EmojiMannager = (function () {
         return getAryRand(this.emojiPool);
     };
     EmojiMannager.prototype.createEmoji = function () {
-        var offsetX = 92, offsetY = 92;
         var position = {
             x: (this.stage.stageWidth - offsetX * MAX_NUM + (offsetX - 72)) * 0.5,
             y: 400
         };
-        console.log('1', (this.stage.stageWidth - offsetX * MAX_NUM) * 0.5);
-        var firstEmoji = null;
         for (var i = 0; i < MAX_NUM; i++) {
             for (var j = 0; j < MAX_NUM; j++) {
                 var tempX = position.x + i * offsetX, tempY = position.y + j * offsetY;
@@ -199,12 +210,7 @@ var EmojiMannager = (function () {
                     var emoji = this.getRandomEmoji();
                     emoji.$setX(tempX);
                     emoji.$setY(tempY);
-                    if (k == 0 && j == 0 && i == 0) {
-                        firstEmoji = emoji;
-                    }
-                    if (k > 0) {
-                        emoji.changeGrey();
-                    }
+                    emoji.setDeep(k);
                     this.stage.addChildAt(emoji, this.stage.numChildren - k);
                     /** 下一层偏移的位置 */
                     var nextPositionMap = [
@@ -227,32 +233,143 @@ var Emoji = (function (_super) {
     __extends(Emoji, _super);
     function Emoji(key) {
         var _this = _super.call(this) || this;
+        /** 唯一key值 */
         _this.key = 0;
-        _this.isDeep = false;
+        /** emoji类型 */
+        _this.type = 0;
+        /** emoji深度 */
+        _this.deep = 0;
         _this.key = key;
         _this.init();
         return _this;
     }
     Emoji.prototype.init = function () {
+        var result = new egret.Bitmap();
         var tempK = (this.key % MAX_NUM) + 1;
+        this.type = tempK;
         var texture = RES.getRes("emoji" + tempK + "_png");
-        this.texture = texture;
+        result.texture = texture;
+        this.addChild(result);
         this.width = 72;
         this.height = 72;
     };
+    Emoji.prototype.setDeep = function (deep) {
+        this.deep = deep;
+        this.changeGrey();
+    };
     /** 底层emoji置灰 */
     Emoji.prototype.changeGrey = function () {
-        //颜色矩阵数组
         var colorMatrix = [
             0.3, 0.6, 0, 0, 0,
             0.3, 0.6, 0, 0, 0,
             0.3, 0.6, 0, 0, 0,
             0, 0, 0, 1, 0
         ];
+        if (this.deep <= 0) {
+            colorMatrix = [
+                1, 0, 0, 0, 0,
+                0, 1, 0, 0, 0,
+                0, 0, 1, 0, 0,
+                0, 0, 0, 1, 0
+            ];
+        }
         var colorFlilter = new egret.ColorMatrixFilter(colorMatrix);
         this.filters = [colorFlilter];
     };
+    /** 消除emoji */
+    Emoji.prototype.destEmoji = function (call) {
+        egret.Tween.get(this).to({ alpha: 0 }, 300).call(function () { call && call(); });
+    };
     return Emoji;
-}(egret.Bitmap));
+}(egret.DisplayObjectContainer));
 __reflect(Emoji.prototype, "Emoji");
+var EmojiPlayer = (function (_super) {
+    __extends(EmojiPlayer, _super);
+    function EmojiPlayer(stage) {
+        var _this = _super.call(this) || this;
+        /** emoji消除栈 */
+        _this.emojiStack = [];
+        /** emoji消除图，类型为属性名，对应栈中的key为值 */
+        _this.emojiEliMap = {};
+        _this.stage = null;
+        /** tween动画的时候不让点击 */
+        _this.isTween = false;
+        _this.initEmojiPlayer();
+        _this.stage = stage;
+        return _this;
+    }
+    EmojiPlayer.prototype.initEmojiPlayer = function () {
+        var shape = new egret.Shape();
+        var w = 7 * 72, h = 72;
+        shape.graphics.beginFill(0x000000, 0.4);
+        shape.graphics.lineStyle(2, 0x000000);
+        shape.graphics.drawRect(0, 0, w, h);
+        shape.graphics.endFill();
+        this.addChild(shape);
+    };
+    /**
+     * 飞行动画
+     * @param emoji
+     */
+    EmojiPlayer.prototype.launchTween = function (emoji) {
+        var _this = this;
+        if (this.isTween) {
+            return;
+        }
+        this.isTween = true;
+        if (this.emojiStack.length >= 7 || emoji.deep !== 0) {
+            return;
+        }
+        var loc = new egret.Point(this.emojiStack.length * 72 + 123, 1200);
+        this.emojiStack.push(emoji);
+        if (!this.emojiEliMap[emoji.type]) {
+            this.emojiEliMap[emoji.type] = [];
+        }
+        this.emojiEliMap[emoji.type].push(this.emojiStack.length - 1);
+        emoji.deep -= 1;
+        egret.Tween.get(emoji).to({ x: loc.x, y: loc.y }, 500, egret.Ease.sineIn).call(function () {
+            _this.isEliminateEmoji();
+        });
+    };
+    /** 消除emoji判断 */
+    EmojiPlayer.prototype.isEliminateEmoji = function () {
+        var _this = this;
+        var tempMap = Object.keys(this.emojiEliMap);
+        console.log(tempMap, this.emojiEliMap);
+        tempMap.forEach(function (item, i) {
+            var ary = _this.emojiEliMap[item] || [];
+            if (ary.length >= 3) {
+                _this.destEmoji(ary);
+                _this.emojiEliMap = [];
+            }
+        });
+        this.isTween = false;
+    };
+    /** 消除emoji */
+    EmojiPlayer.prototype.destEmoji = function (keys) {
+        var _this = this;
+        var newStack = this.emojiStack.filter(function (emoji, i) {
+            var isDel = keys.includes(i);
+            if (isDel) {
+                emoji.destEmoji(function () {
+                    _this.stage.removeChild(emoji);
+                });
+            }
+            return !isDel;
+        });
+        this.emojiStack = newStack;
+        this.refreEmojiPlayer();
+    };
+    EmojiPlayer.prototype.refreEmojiPlayer = function () {
+        var _this = this;
+        this.emojiStack.forEach(function (emoji, i) {
+            var loc = new egret.Point(i * 72 + 123, 1200);
+            egret.Tween.get(emoji).to({ x: loc.x, y: loc.y }, 200, egret.Ease.sineIn).call(function () {
+                _this.isEliminateEmoji();
+            });
+        });
+    };
+    return EmojiPlayer;
+}(egret.DisplayObjectContainer));
+__reflect(EmojiPlayer.prototype, "EmojiPlayer");
 //# sourceMappingURL=Main.js.map
