@@ -290,12 +290,14 @@ class EmojiPlayer extends egret.DisplayObjectContainer {
     if (!this.emojiEliMap[emoji.type]) {
       this.emojiEliMap[emoji.type] = []
     }
+    // 禁用掉事件
+    emoji.touchEnabled = false
     this.emojiEliMap[emoji.type].push(emoji.key)
     // 刷新下一层的emoji样式
     if (emoji.nextEmoji) {
       emoji.nextEmoji.refreshDeep()
     }
-    egret.Tween.get(emoji).to({ x: loc.x, y: loc.y }, 500, egret.Ease.sineIn).call(() => {
+    egret.Tween.get(emoji).to({ x: loc.x, y: loc.y }, 400).call(() => {
       this.isEliminateEmoji()
     });
   }
@@ -338,7 +340,7 @@ class EmojiPlayer extends egret.DisplayObjectContainer {
   private refreEmojiPlayer() {
     this.emojiStack.forEach((emoji, i) => {
       const loc: egret.Point = new egret.Point(i * 72 + 123, 1200)
-      egret.Tween.get(emoji).to({ x: loc.x, y: loc.y }, 200, egret.Ease.sineIn);
+      egret.Tween.get(emoji).to({ x: loc.x, y: loc.y }, 200);
     })
   }
 }

@@ -341,12 +341,14 @@ var EmojiPlayer = (function (_super) {
         if (!this.emojiEliMap[emoji.type]) {
             this.emojiEliMap[emoji.type] = [];
         }
+        // 禁用掉事件
+        emoji.touchEnabled = false;
         this.emojiEliMap[emoji.type].push(emoji.key);
         // 刷新下一层的emoji样式
         if (emoji.nextEmoji) {
             emoji.nextEmoji.refreshDeep();
         }
-        egret.Tween.get(emoji).to({ x: loc.x, y: loc.y }, 500, egret.Ease.sineIn).call(function () {
+        egret.Tween.get(emoji).to({ x: loc.x, y: loc.y }, 400).call(function () {
             _this.isEliminateEmoji();
         });
     };
@@ -387,7 +389,7 @@ var EmojiPlayer = (function (_super) {
     EmojiPlayer.prototype.refreEmojiPlayer = function () {
         this.emojiStack.forEach(function (emoji, i) {
             var loc = new egret.Point(i * 72 + 123, 1200);
-            egret.Tween.get(emoji).to({ x: loc.x, y: loc.y }, 200, egret.Ease.sineIn);
+            egret.Tween.get(emoji).to({ x: loc.x, y: loc.y }, 200);
         });
     };
     return EmojiPlayer;
